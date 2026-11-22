@@ -180,9 +180,7 @@ app.post("/api/mpesa/callback", (req, res) => {
     ResultCode: 0,
     ResultDesc: "Accepted"
   });
-});
     }
-
     console.log("M-Pesa callback received:", JSON.stringify(req.body));
   }
 
