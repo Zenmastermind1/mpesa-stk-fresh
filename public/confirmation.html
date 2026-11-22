@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Confirmation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f5f2;
+      padding: 30px 15px;
+      text-align: center;
+    }
+    .card {
+      max-width: 400px;
+      margin: 50px auto;
+      padding: 30px 20px;
+      background: white;
+      border-radius: 12px;
+    }
+    h1 { color: #087b43; }
+    #status { font-size: 18px; }
+    #receipt { font-weight: bold; }
+    a {
+      display: inline-block;
+      margin-top: 25px;
+      padding: 13px 22px;
+      background: #087b43;
+      color: white;
+      text-decoration: none;
+      border-radius: 7px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Payment Confirmation</h1>
+
+    <p id="status">Waiting for M-Pesa confirmation...</p>
+
+    <p id="receipt"></p>
+
+    <a href="/">Return to Store</a>
+  </div>
+
+  <script src="/confirmation.js" defer></script>
+</body>
+</html>
