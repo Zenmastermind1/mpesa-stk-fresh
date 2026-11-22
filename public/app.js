@@ -10,7 +10,7 @@ form.addEventListener("submit", async function(event) {
   const amount = Number(document.getElementById("amount").value);
 
   if (!/^254[71]\d{8}$/.test(phone)) {
-    message.textContent = "Use a Kenyan number starting with 254.";
+    message.textContent = "Enter a valid Kenyan phone number.";
     return;
   }
 
@@ -38,17 +38,20 @@ form.addEventListener("submit", async function(event) {
       throw new Error(data.error || "Payment request failed.");
     }
 
-    if (data.ResponseCode === "0") {
-      message.textContent =
-        "STK request accepted. Check your supported sandbox test setup.";
+    if (data.ResponseCode === "0" && data.CheckoutRequestID) {
+      message.textContent = "Request accepted. Opening confirmation page...";
+
+      window.location.href =
+        "/confirmation.html?checkout=" +
+        encodeURIComponent(data.CheckoutRequestID);
     } else {
-      message.textContent =
-        data.ResponseDescription || "Request was not accepted.";
+      throw new Error(
+        data.ResponseDescription || "Payment request was not accepted."
+      );
     }
 
   } catch (error) {
     message.textContent = error.message;
-  } finally {
     button.disabled = false;
     button.textContent = "PAY WITH M-PESA";
   }
