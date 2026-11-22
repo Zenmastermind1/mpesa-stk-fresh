@@ -164,9 +164,23 @@ app.post("/api/mpesa/callback", (req, res) => {
       transactions.set(checkoutId, {
         status: resultCode === 0 ? "success" : "failed",
         amount: amount ?? transactions.get(checkoutId)?.amount,
-        receipt: receipt || null,
+        receipt: resultCode === 0 ? receipt || null : null,
         resultDescription: callback.ResultDesc || "Payment result received."
       });
+    }
+
+    console.log("M-Pesa callback received:", JSON.stringify({
+      CheckoutRequestID: checkoutId,
+      ResultCode: resultCode,
+      ResultDesc: callback.ResultDesc
+    }));
+  }
+
+  res.status(200).json({
+    ResultCode: 0,
+    ResultDesc: "Accepted"
+  });
+});
     }
 
     console.log("M-Pesa callback received:", JSON.stringify(req.body));
