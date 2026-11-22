@@ -38,7 +38,7 @@ form.addEventListener("submit", async function(event) {
       throw new Error(data.error || "Payment request failed.");
     }
 
-    if (data.ResponseCode === "0" && data.CheckoutRequestID) {
+    if (data.CheckoutRequestID) {
       message.textContent = "Request accepted. Opening confirmation page...";
 
       window.location.href =
