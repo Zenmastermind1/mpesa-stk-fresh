@@ -201,8 +201,31 @@ app.get("/api/mpesa/status/:checkoutId", (req, res) => {
   res.json(transaction);
 });
 
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+async function initializeDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payments (
+      checkout_id TEXT PRIMARY KEY,
+      phone TEXT,
+      amount NUMERIC,
+      status TEXT NOT NULL,
+      receipt TEXT,
+      result_description TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  console.log("Payments table is ready!");
+}
+
+initializeDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log("Server running on port " + PORT);
+    });
+  })
+  .catch(error => {
+    console.error("Database setup failed:", error);
+    process.exit(1);
+  });
 
 
