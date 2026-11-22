@@ -1,0 +1,66 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My M-Pesa Store</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f5f2;
+      margin: 0;
+      padding: 30px 15px;
+    }
+    .container {
+      max-width: 400px;
+      margin: 40px auto;
+      padding: 25px;
+      background: white;
+      border-radius: 12px;
+      text-align: center;
+    }
+    h1 { color: #087b43; }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 14px;
+      margin-top: 15px;
+      font-size: 16px;
+      border-radius: 7px;
+    }
+    input { border: 1px solid #ccc; }
+    button {
+      background: #087b43;
+      color: white;
+      border: none;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>MY M-PESA STORE</h1>
+    <p>Welcome! Make a payment using M-Pesa.</p>
+
+    <form id="paymentForm">
+      <input
+        id="phone"
+        type="tel"
+        placeholder="2547XXXXXXXX"
+        required
+      >
+      <input
+        id="amount"
+        type="number"
+        min="1"
+        placeholder="Amount in KES"
+        required
+      >
+      <button type="submit">PAY WITH M-PESA</button>
+    </form>
+
+    <p id="message"></p>
+  </div>
+</body>
+</html>
