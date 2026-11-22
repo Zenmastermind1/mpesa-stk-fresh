@@ -10,11 +10,146 @@ app.use(express.json());
 app.use(express.static("public"));
 
 app.get("/api/status", (req, res) => {
-  res.json({
-    message: "Fresh M-Pesa website is running!"
-  });
+  res.json({ message: "M-Pesa server is running!" });
+});
+
+function getTimestamp() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Nairobi",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date());
+
+  const values = {};
+  for (const part of parts) {
+    values[part.type] = part.value;
+  }
+
+  return values.year + values.month + values.day +
+    values.hour + values.minute + values.second;
+}
+
+app.post("/api/mpesa/stkpush", async (req, res) => {
+  try {
+    const {
+      MPESA_CONSUMER_KEY,
+      MPESA_CONSUMER_SECRET,
+      MPESA_SHORTCODE,
+      MPESA_PASSKEY,
+      MPESA_CALLBACK_URL
+    } = process.env;
+
+    if (
+      !MPESA_CONSUMER_KEY ||
+      !MPESA_CONSUMER_SECRET ||
+      !MPESA_SHORTCODE ||
+      !MPESA_PASSKEY ||
+      !MPESA_CALLBACK_URL
+    ) {
+      return res.status(500).json({
+        error: "M-Pesa environment settings are incomplete."
+      });
+    }
+
+    let { phone, amount } = req.body;
+
+    phone = String(phone || "").replace(/\s+/g, "");
+    amount = Number(amount);
+
+    if (!/^2547\d{8}$/.test(phone) && !/^2541\d{8}$/.test(phone)) {
+      return res.status(400).json({
+        error: "Enter a valid Kenyan phone number starting with 254."
+      });
+    }
+
+    if (!Number.isSafeInteger(amount) || amount < 1) {
+      return res.status(400).json({
+        error: "Enter a valid whole-number amount."
+      });
+    }
+
+    const auth = Buffer.from(
+      MPESA_CONSUMER_KEY + ":" + MPESA_CONSUMER_SECRET
+    ).toString("base64");
+
+    const tokenResponse = await fetch(
+      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: "Basic " + auth
+        }
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error("Daraja authentication failed:", tokenData);
+      return res.status(502).json({
+        error: "Could not authenticate with Daraja."
+      });
+    }
+
+    const timestamp = getTimestamp();
+
+    const password = Buffer.from(
+      MPESA_SHORTCODE + MPESA_PASSKEY + timestamp
+    ).toString("base64");
+
+    const stkResponse = await fetch(
+      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + tokenData.access_token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          BusinessShortCode: MPESA_SHORTCODE,
+          Password: password,
+          Timestamp: timestamp,
+          TransactionType: "CustomerPayBillOnline",
+          Amount: amount,
+          PartyA: phone,
+          PartyB: MPESA_SHORTCODE,
+          PhoneNumber: phone,
+          CallBackURL: MPESA_CALLBACK_URL,
+          AccountReference: "OnlinePayment",
+          TransactionDesc: "Website payment"
+        })
+      }
+    );
+
+    const result = await stkResponse.json();
+
+    if (!stkResponse.ok) {
+      console.error("Daraja STK error:", result);
+      return res.status(502).json({
+        error: result.errorMessage || "Daraja rejected the request."
+      });
+    }
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error("STK Push error:", error);
+    return res.status(500).json({
+      error: "Server error while sending payment request."
+    });
+  }
+});
+
+app.post("/api/mpesa/callback", (req, res) => {
+  console.log("M-Pesa callback received:", JSON.stringify(req.body));
+  res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Server running on port " + PORT);
 });
+
