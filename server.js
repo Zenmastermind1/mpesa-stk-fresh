@@ -132,13 +132,20 @@ app.post("/api/mpesa/stkpush", async (req, res) => {
     }
 
     if (result.CheckoutRequestID) {
-      transactions.set(result.CheckoutRequestID, {
-        status: "pending",
-        amount,
-        receipt: null,
-        resultDescription: "Waiting for payment confirmation."
-      });
-    }
+  await pool.query(
+    `INSERT INTO payments
+     (checkout_id, phone, amount, status, result_description)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (checkout_id) DO NOTHING`,
+    [
+      result.CheckoutRequestID,
+      phone,
+      amount,
+      "pending",
+      "Waiting for payment confirmation."
+    ]
+  );
+          }
 
     res.json(result);
 
@@ -151,7 +158,7 @@ app.post("/api/mpesa/stkpush", async (req, res) => {
 });
 
 // Safaricom sends the final transaction result here.
-app.post("/api/mpesa/callback", (req, res) => {
+app.post("/api/mpesa/callback", async (req, res) => {
   const callback = req.body?.Body?.stkCallback;
 
   if (callback) {
@@ -168,12 +175,21 @@ app.post("/api/mpesa/callback", (req, res) => {
     )?.Value;
 
     if (checkoutId) {
-      transactions.set(checkoutId, {
-        status: resultCode === 0 ? "success" : "failed",
-        amount: amount ?? transactions.get(checkoutId)?.amount,
-        receipt: resultCode === 0 ? receipt || null : null,
-        resultDescription: callback.ResultDesc || "Payment result received."
-      });
+      await pool.query(
+  `UPDATE payments
+   SET status = $1,
+       amount = COALESCE($2, amount),
+       receipt = $3,
+       result_description = $4
+   WHERE checkout_id = $5`,
+  [
+    resultCode === 0 ? "success" : "failed",
+    amount ?? null,
+    resultCode === 0 ? receipt || null : null,
+    callback.ResultDesc || "Payment result received.",
+    checkoutId
+  ]
+);
     }
 
     console.log("M-Pesa callback received:", JSON.stringify({
