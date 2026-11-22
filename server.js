@@ -190,8 +190,6 @@ app.post("/api/mpesa/callback", (req, res) => {
     ResultCode: 0,
     ResultDesc: "Accepted"
   });
-});
-
 // Website checks this endpoint for the payment result.
 app.get("/api/mpesa/status/:checkoutId", (req, res) => {
   const transaction = transactions.get(req.params.checkoutId);
