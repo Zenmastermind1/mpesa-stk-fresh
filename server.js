@@ -208,6 +208,7 @@ app.post("/api/mpesa/callback", async (req, res) => {
 });
 // Website checks this endpoint for the payment result.
 
+
 app.get("/api/mpesa/status/:checkoutId", async (req, res) => {
   try {
     const checkoutId = req.params.checkoutId;
@@ -243,25 +244,6 @@ app.get("/api/mpesa/status/:checkoutId", async (req, res) => {
   }
 });
 
-    }
-
-    const payment = result.rows[0];
-
-    res.json({
-      status: payment.status,
-      amount: payment.amount,
-      receipt: payment.receipt,
-      resultDescription: payment.result_description
-    });
-
-    } catch (error) {
-    console.error("Payment status error:", error);
-
-    res.status(500).json({
-      error: "Could not check payment status."
-    });
-  }
-});
 
 function requireAdmin(req, res, next) {
   const cookieHeader = req.headers.cookie || "";
