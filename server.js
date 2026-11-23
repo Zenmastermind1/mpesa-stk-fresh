@@ -302,8 +302,6 @@ app.post("/api/admin/login", (req, res) => {
   });
 });
 
-  }
-
 app.get("/api/admin/payments", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -313,7 +311,6 @@ app.get("/api/admin/payments", requireAdmin, async (req, res) => {
       ORDER BY created_at DESC
       LIMIT 200
     `);
-
     const totals = await pool.query(`
       SELECT
         COUNT(*) AS total,
