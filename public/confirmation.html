@@ -1,10 +1,12 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Payment Confirmation</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,36 +14,68 @@
       padding: 30px 15px;
       text-align: center;
     }
+
     .card {
       max-width: 400px;
       margin: 50px auto;
       padding: 30px 20px;
       background: white;
       border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
+
     h1 { color: #087b43; }
-    #status { font-size: 18px; }
-    #receipt { font-weight: bold; }
-    a {
-      display: inline-block;
-      margin-top: 25px;
+
+    #status {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    #receipt {
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+
+    .download {
+      display: block;
+      margin: 20px auto 0;
       padding: 13px 22px;
       background: #087b43;
       color: white;
-      text-decoration: none;
+      border: none;
       border-radius: 7px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .download:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+
+    .store-link {
+      display: inline-block;
+      margin-top: 20px;
+      color: #087b43;
     }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h1>Payment Confirmation</h1>
 
     <p id="status">Waiting for M-Pesa confirmation...</p>
 
-    <p id="receipt"></p>
+    <div id="receiptDetails">
+      <p id="receipt"></p>
+    </div>
 
-    <a href="/">Return to Store</a>
+    <button id="downloadReceipt" class="download" disabled>
+      Download Receipt
+    </button>
+
+    <a class="store-link" href="/">Return to Store</a>
   </div>
 
   <script src="/confirmation.js" defer></script>
