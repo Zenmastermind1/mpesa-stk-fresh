@@ -207,21 +207,42 @@ app.post("/api/mpesa/callback", async (req, res) => {
   });
 });
 // Website checks this endpoint for the payment result.
+
 app.get("/api/mpesa/status/:checkoutId", async (req, res) => {
   try {
     const checkoutId = req.params.checkoutId;
 
     const result = await pool.query(
-      `SELECT status, amount, receipt, result_description
+      `SELECT status, amount, receipt, phone,
+              created_at, result_description
        FROM payments
        WHERE checkout_id = $1`,
       [checkoutId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        status: "unknown"
-      });
+      return res.status(404).json({ status: "unknown" });
+    }
+
+    const payment = result.rows[0];
+
+    res.json({
+      status: payment.status,
+      amount: payment.amount,
+      receipt: payment.receipt,
+      phone: payment.phone,
+      createdAt: payment.created_at,
+      resultDescription: payment.result_description
+    });
+
+  } catch (error) {
+    console.error("Payment status error:", error);
+    res.status(500).json({
+      error: "Could not check payment status."
+    });
+  }
+});
+
     }
 
     const payment = result.rows[0];
