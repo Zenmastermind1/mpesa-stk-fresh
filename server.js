@@ -239,7 +239,6 @@ app.get("/api/mpesa/status/:checkoutId", async (req, res) => {
     });
   }
 });
-  }
   res.json(transaction);
 });
 
