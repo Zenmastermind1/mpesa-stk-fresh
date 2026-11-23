@@ -1,0 +1,276 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>M-Pesa Admin Dashboard</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #f3f5f7;
+      font-family: Arial, sans-serif;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    h1 {
+      color: #087b45;
+    }
+
+    .panel {
+      background: white;
+      padding: 22px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px #00000010;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 7px;
+      font-size: 16px;
+    }
+
+    button {
+      background: #078849;
+      color: white;
+      border: 0;
+      padding: 13px 20px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .stat {
+      background: #f0faf4;
+      padding: 18px;
+      border-radius: 9px;
+    }
+
+    .stat h2 {
+      margin: 8px 0 0;
+      color: #087b45;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 650px;
+    }
+
+    th, td {
+      padding: 13px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+
+    th {
+      background: #f5f5f5;
+    }
+
+    #dashboard {
+      display: none;
+    }
+
+    #message {
+      color: #c0392b;
+    }
+
+    @media (min-width: 700px) {
+      .stats {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+  <h1>M-Pesa Admin Dashboard</h1>
+
+  <div class="panel" id="loginPanel">
+    <h2>Admin Login</h2>
+
+    <form id="loginForm">
+      <input
+        type="password"
+        id="password"
+        placeholder="Enter admin password"
+        required
+      >
+
+      <button type="submit">Login</button>
+    </form>
+
+    <p id="message"></p>
+  </div>
+
+  <div id="dashboard">
+
+    <div class="panel">
+      <h2>Payment Statistics</h2>
+
+      <div class="stats">
+        <div class="stat">
+          Total Payments
+          <h2 id="total">0</h2>
+        </div>
+
+        <div class="stat">
+          Successful
+          <h2 id="successful">0</h2>
+        </div>
+
+        <div class="stat">
+          Pending
+          <h2 id="pending">0</h2>
+        </div>
+
+        <div class="stat">
+          Failed
+          <h2 id="failed">0</h2>
+        </div>
+      </div>
+
+      <h3>Total Revenue</h3>
+      <h2 id="revenue">KSh 0</h2>
+
+      <button onclick="loadPayments()">
+        Refresh Payments
+      </button>
+    </div>
+
+    <div class="panel">
+      <h2>Recent Payments</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Phone</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Receipt</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+
+          <tbody id="paymentsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const loginForm = document.getElementById("loginForm");
+  const message = document.getElementById("message");
+
+  loginForm.addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    message.textContent = "Checking password...";
+
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          password: document.getElementById("password").value
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed.");
+      }
+
+      document.getElementById("loginPanel").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+
+      loadPayments();
+
+    } catch (error) {
+      message.textContent = error.message;
+    }
+  });
+
+  async function loadPayments() {
+    try {
+      const response = await fetch("/api/admin/payments");
+
+      if (!response.ok) {
+        throw new Error("Could not load payments. Please log in again.");
+      }
+
+      const data = await response.json();
+      const totals = data.totals;
+
+      document.getElementById("total").textContent = totals.total;
+      document.getElementById("successful").textContent = totals.successful;
+      document.getElementById("pending").textContent = totals.pending;
+      document.getElementById("failed").textContent = totals.failed;
+
+      document.getElementById("revenue").textContent =
+        "KSh " + Number(totals.revenue).toLocaleString();
+
+      const table = document.getElementById("paymentsTable");
+      table.replaceChildren();
+
+      data.payments.forEach(payment => {
+        const row = document.createElement("tr");
+
+        [
+          payment.phone || "-",
+          "KSh " + Number(payment.amount).toLocaleString(),
+          payment.status,
+          payment.receipt || "-",
+          payment.created_at
+            ? new Date(payment.created_at).toLocaleString()
+            : "-"
+        ].forEach(value => {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+
+        table.appendChild(row);
+      });
+
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+</script>
+
+</body>
+</html>
