@@ -231,15 +231,13 @@ app.get("/api/mpesa/status/:checkoutId", async (req, res) => {
       resultDescription: payment.result_description
     });
 
-  } catch (error) {
+    } catch (error) {
     console.error("Payment status error:", error);
 
     res.status(500).json({
       error: "Could not check payment status."
     });
   }
-});
-  res.json(transaction);
 });
 
 async function initializeDatabase() {
