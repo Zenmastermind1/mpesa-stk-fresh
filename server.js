@@ -304,18 +304,6 @@ app.post("/api/admin/login", (req, res) => {
 
   }
 
-  if (password !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({
-      error: "Incorrect admin password."
-    });
-  }
-
-  res.json({
-    success: true,
-    message: "Admin login successful."
-  });
-});
-
 app.get("/api/admin/payments", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
