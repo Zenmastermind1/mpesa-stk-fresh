@@ -1,10 +1,12 @@
 
 const express = require("express");
 const helmet = require("helmet");
+const crypto = require("crypto");
 const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const adminSessions = new Map();
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -236,6 +238,114 @@ app.get("/api/mpesa/status/:checkoutId", async (req, res) => {
 
     res.status(500).json({
       error: "Could not check payment status."
+    });
+  }
+});
+
+function requireAdmin(req, res, next) {
+  const cookieHeader = req.headers.cookie || "";
+
+  const tokenCookie = cookieHeader
+    .split(";")
+    .map(item => item.trim())
+    .find(item => item.startsWith("admin_session="));
+
+  const token = tokenCookie
+    ? tokenCookie.substring("admin_session=".length)
+    : null;
+
+  const session = token ? adminSessions.get(token) : null;
+
+  if (!session || session.expires < Date.now()) {
+    if (token) adminSessions.delete(token);
+
+    return res.status(401).json({
+      error: "Please log in as admin."
+    });
+  }
+
+  next();
+}
+
+app.post("/api/admin/login", (req, res) => {
+  const { password } = req.body;
+
+  if (!process.env.ADMIN_PASSWORD) {
+    return res.status(500).json({
+      error: "Admin password is not configured."
+    });
+  }
+
+  if (password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({
+      error: "Incorrect admin password."
+    });
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+
+  adminSessions.set(token, {
+    expires: Date.now() + 60 * 60 * 1000
+  });
+
+  res.cookie("admin_session", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+    maxAge: 60 * 60 * 1000,
+    path: "/api/admin"
+  });
+
+  res.json({
+    success: true,
+    message: "Admin login successful."
+  });
+});
+
+  }
+
+  if (password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({
+      error: "Incorrect admin password."
+    });
+  }
+
+  res.json({
+    success: true,
+    message: "Admin login successful."
+  });
+});
+
+app.get("/api/admin/payments", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT checkout_id, phone, amount, status,
+             receipt, result_description, created_at
+      FROM payments
+      ORDER BY created_at DESC
+      LIMIT 200
+    `);
+
+    const totals = await pool.query(`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status = 'success') AS successful,
+        COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+        COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+        COALESCE(SUM(amount) FILTER (WHERE status = 'success'), 0) AS revenue
+      FROM payments
+    `);
+
+    res.json({
+      payments: result.rows,
+      totals: totals.rows[0]
+    });
+
+  } catch (error) {
+    console.error("Admin payments error:", error);
+
+    res.status(500).json({
+      error: "Could not load payments."
     });
   }
 });
