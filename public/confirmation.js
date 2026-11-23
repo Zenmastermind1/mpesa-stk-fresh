@@ -49,24 +49,33 @@ if (!checkoutId) {
         if (data.status === "success") {
           statusText.textContent = "Payment Successful!";
 
-          const receipt = data.receipt || "Not provided";
-          const amount = data.amount || "Not provided";
+          
+const receipt = data.receipt || "Not provided";
+const amount = data.amount || "Not provided";
+const phone = data.phone || "Not provided";
+const transactionDate = data.createdAt
+  ? new Date(data.createdAt).toLocaleString()
+  : "Not provided";
 
-          receiptText.textContent =
-            "M-Pesa Receipt: " + receipt +
-            " | Amount: KSh " + amount;
+receiptText.textContent =
+  "M-Pesa Receipt: " + receipt +
+  " | Amount: KSh " + amount +
+  " | Phone: " + phone +
+  " | Date: " + transactionDate;
 
-          receiptContent =
-            "M-PESA PAYMENT RECEIPT\n" +
-            "------------------------\n" +
-            "Payment Status: SUCCESSFUL\n" +
-            "Amount: KSh " + amount + "\n" +
-            "M-Pesa Receipt: " + receipt + "\n" +
-            "Payment Reference: " + checkoutId + "\n" +
-            "------------------------\n" +
-            "Thank you for your payment.";
+receiptContent =
+  "M-PESA PAYMENT RECEIPT\n" +
+  "------------------------\n" +
+  "Payment Status: SUCCESSFUL\n" +
+  "Customer Phone: " + phone + "\n" +
+  "Amount: KSh " + amount + "\n" +
+  "M-Pesa Receipt: " + receipt + "\n" +
+  "Transaction Date: " + transactionDate + "\n" +
+  "Payment Reference: " + checkoutId + "\n" +
+  "------------------------\n" +
+  "Thank you for your payment to Zen Inc.";
 
-          downloadButton.disabled = false;
+downloadButton.disabled = false;
           return;
         }
 
