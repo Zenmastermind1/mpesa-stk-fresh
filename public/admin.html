@@ -168,6 +168,34 @@
     <div class="panel">
       <h2>Recent Payments</h2>
 
+<div class="filters">
+  <input
+    type="text"
+    id="paymentSearch"
+    placeholder="Search phone or M-Pesa receipt..."
+    oninput="renderPayments()"
+  >
+
+  <select id="statusFilter" onchange="renderPayments()">
+    <option value="">All statuses</option>
+    <option value="success">Successful</option>
+    <option value="pending">Pending</option>
+    <option value="failed">Failed</option>
+  </select>
+
+  <label>From date</label>
+  <input type="date" id="fromDate" onchange="renderPayments()">
+
+  <label>To date</label>
+  <input type="date" id="toDate" onchange="renderPayments()">
+
+  <button type="button" onclick="clearFilters()">
+    Clear Filters
+  </button>
+</div>
+
+<p>Matching payments are shown below.</p>
+
       <div class="table-wrap">
         <table>
           <thead>
