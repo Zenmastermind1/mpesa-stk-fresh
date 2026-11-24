@@ -1,6 +1,9 @@
 
+
 const loginForm = document.getElementById("loginForm");
 const message = document.getElementById("message");
+
+let allPayments = [];
 
 loginForm.addEventListener("submit", async function(event) {
   event.preventDefault();
@@ -48,29 +51,84 @@ async function loadPayments() {
     document.getElementById("revenue").textContent =
       "KSh " + Number(totals.revenue).toLocaleString();
 
-    const table = document.getElementById("paymentsTable");
-    table.replaceChildren();
-
-    data.payments.forEach(payment => {
-      const row = document.createElement("tr");
-
-      [
-        payment.phone || "-",
-        "KSh " + Number(payment.amount).toLocaleString(),
-        payment.status,
-        payment.receipt || "-",
-        payment.created_at
-          ? new Date(payment.created_at).toLocaleString()
-          : "-"
-      ].forEach(value => {
-        const cell = document.createElement("td");
-        cell.textContent = value;
-        row.appendChild(cell);
-      });
-
-      table.appendChild(row);
-    });
+    allPayments = data.payments;
+    renderPayments();
   } catch (error) {
     alert(error.message);
   }
+}
+
+function renderPayments() {
+  const search = document.getElementById("paymentSearch").value
+    .trim().toLowerCase();
+
+  const status = document.getElementById("statusFilter").value;
+  const fromDate = document.getElementById("fromDate").value;
+  const toDate = document.getElementById("toDate").value;
+
+  const filtered = allPayments.filter(payment => {
+    const phone = String(payment.phone || "").toLowerCase();
+    const receipt = String(payment.receipt || "").toLowerCase();
+
+    const matchesSearch =
+      phone.includes(search) || receipt.includes(search);
+
+    const matchesStatus =
+      !status || payment.status === status;
+
+    const paymentDate = payment.created_at
+      ? new Date(payment.created_at)
+      : null;
+
+    const matchesFrom = !fromDate || (
+      paymentDate && paymentDate >= new Date(fromDate + "T00:00:00")
+    );
+
+    const matchesTo = !toDate || (
+      paymentDate && paymentDate <= new Date(toDate + "T23:59:59")
+    );
+
+    return matchesSearch && matchesStatus && matchesFrom && matchesTo;
+  });
+
+  const table = document.getElementById("paymentsTable");
+  table.replaceChildren();
+
+  if (filtered.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 5;
+    cell.textContent = "No matching payments found.";
+    row.appendChild(cell);
+    table.appendChild(row);
+    return;
+  }
+
+  filtered.forEach(payment => {
+    const row = document.createElement("tr");
+
+    [
+      payment.phone || "-",
+      "KSh " + Number(payment.amount).toLocaleString(),
+      payment.status,
+      payment.receipt || "-",
+      payment.created_at
+        ? new Date(payment.created_at).toLocaleString()
+        : "-"
+    ].forEach(value => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    });
+
+    table.appendChild(row);
+  });
+}
+
+function clearFilters() {
+  document.getElementById("paymentSearch").value = "";
+  document.getElementById("statusFilter").value = "";
+  document.getElementById("fromDate").value = "";
+  document.getElementById("toDate").value = "";
+  renderPayments();
 }
