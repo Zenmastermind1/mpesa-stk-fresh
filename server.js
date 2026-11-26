@@ -174,6 +174,11 @@ app.post("/api/mpesa/stkpush", async (req, res) => {
   }
 });
 
+async function processTelegramOrder(checkoutId) {
+  console.log("Checking Telegram order for:", checkoutId);
+
+  // We will add the secure Digitex order processing here next.
+}
 // Safaricom sends the final transaction result here.
 app.post("/api/mpesa/callback", async (req, res) => {
   const callback = req.body?.Body?.stkCallback;
@@ -207,6 +212,9 @@ app.post("/api/mpesa/callback", async (req, res) => {
     checkoutId
   ]
 );
+      if (resultCode === 0) {
+  await processTelegramOrder(checkoutId);
+      }
     }
 
     console.log("M-Pesa callback received:", JSON.stringify({
