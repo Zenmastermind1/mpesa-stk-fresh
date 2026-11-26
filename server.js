@@ -96,6 +96,28 @@ app.post("/api/mpesa/stkpush", async (req, res) => {
       });
     }
 
+    pendingCheckoutId = "PENDING-" + crypto.randomBytes(16).toString("hex");
+
+await pool.query(
+  `INSERT INTO payments
+   (checkout_id, phone, amount, status,
+    result_description, telegram_user_id,
+    service_id, service_name, target_link,
+    quantity, digitex_rate, order_status)
+   VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,'not_created')`,
+  [
+    pendingCheckoutId,
+    phone,
+    amount,
+    "Preparing M-Pesa payment.",
+    String(telegramUserId),
+    String(service.service),
+    String(service.name),
+    target.href,
+    units,
+    rate
+  ]
+);
     const auth = Buffer.from(
       MPESA_CONSUMER_KEY + ":" + MPESA_CONSUMER_SECRET
     ).toString("base64");
@@ -263,6 +285,8 @@ async function processTelegramOrder(checkoutId) {
   }
 }
 app.post("/api/telegram/payment", async (req, res) => {
+  let pendingCheckoutId = null;
+
   try {
     const suppliedSecret =
       req.headers["x-telegram-payment-secret"] || "";
