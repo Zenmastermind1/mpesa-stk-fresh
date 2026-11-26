@@ -469,6 +469,18 @@ await pool.query(
       !result.CheckoutRequestID
     ) {
       console.error("Telegram STK error:", result);
+      if (pendingCheckoutId) {
+  await pool.query(
+    `UPDATE payments
+     SET status = 'failed',
+         result_description = $1
+     WHERE checkout_id = $2`,
+    [
+      result.errorMessage || "STK Push was rejected.",
+      pendingCheckoutId
+    ]
+  );
+      }
 
       return res.status(502).json({
         error: result.errorMessage || "STK Push was rejected."
