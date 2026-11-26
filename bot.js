@@ -264,26 +264,77 @@ bot.on("text", async (ctx) => {
   }
 
   if (session.step === "waiting_phone") {
-    const phone = ctx.message.text.trim();
+  if (session.step === "waiting_phone") {
+  const phone = ctx.message.text.trim();
 
-    if (!/^254[17]\d{8}$/.test(phone)) {
+  if (!/^254[17]\d{8}$/.test(phone)) {
+    return ctx.reply(
+      "Invalid phone number. Use 2547XXXXXXXX or 2541XXXXXXXX."
+    );
+  }
+
+  session.phone = phone;
+  session.step = "payment_requested";
+
+  try {
+    const baseUrl = process.env.RENDER_EXTERNAL_URL;
+
+    if (!baseUrl || !process.env.TELEGRAM_PAYMENT_SECRET) {
+      throw new Error("Payment configuration is missing.");
+    }
+
+    await ctx.reply(
+      "Please wait. Sending your M-Pesa payment request..."
+    );
+
+    const response = await fetch(
+      baseUrl.replace(/\/$/, "") + "/api/telegram/payment",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-telegram-payment-secret":
+            process.env.TELEGRAM_PAYMENT_SECRET
+        },
+        body: JSON.stringify({
+          telegramUserId: ctx.from.id,
+          serviceId: session.service.service,
+          link: session.link,
+          quantity: session.quantity,
+          phone: session.phone
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      session.step = "ready_for_payment";
+
       return ctx.reply(
-        "Invalid phone number. Use format 2547XXXXXXXX or 2541XXXXXXXX."
+        "Payment request failed: " +
+        (result.error || "Please try again later.")
       );
     }
 
-    session.phone = phone;
+    orderSessions.delete(ctx.from.id);
+
+    return ctx.reply(
+      "M-Pesa STK Push sent!\n\n" +
+      "Amount: KES " + result.amount +
+      "\nPhone: " + phone +
+      "\n\nEnter your M-Pesa PIN on your phone to complete payment."
+    );
+
+  } catch (error) {
+    console.error("Telegram payment request failed:", error.message);
     session.step = "ready_for_payment";
 
     return ctx.reply(
-      "Your order details have been collected!\n\n" +
-      `Service: ${session.service.name}\n` +
-      `Quantity: ${session.quantity}\n` +
-      `Total: KES ${session.total}\n` +
-      `Phone: ${session.phone}\n\n` +
-      "Payment setup is the next step. No payment has been requested yet."
+      "Unable to send the payment request. Please try again later."
     );
   }
+}
 });
 bot.catch((error) => {
   console.error("Telegram bot error:", error.message);
