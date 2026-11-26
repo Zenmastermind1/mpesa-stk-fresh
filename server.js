@@ -574,9 +574,7 @@ if (
   paymentUpdate.rows[0].telegram_user_id !== null
 ) {
   await processTelegramOrder(paymentUpdate.rows[0].checkout_id);
-}      if (resultCode === 0) {
-  await processTelegramOrder(checkoutId);
-      }
+}      
     }
 
     console.log("M-Pesa callback received:", JSON.stringify({
