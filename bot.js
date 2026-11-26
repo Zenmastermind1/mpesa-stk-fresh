@@ -187,4 +187,6 @@ bot.catch((error) => {
   console.error("Telegram bot error:", error.message);
 });
 
+bot.digitex = digitex;
+
 module.exports = bot;
