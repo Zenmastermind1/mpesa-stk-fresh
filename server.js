@@ -476,25 +476,19 @@ await pool.query(
     }
 
     await pool.query(
-      `INSERT INTO payments
-       (checkout_id, phone, amount, status,
-        result_description, telegram_user_id,
-        service_id, service_name, target_link,
-        quantity, digitex_rate, order_status)
-       VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,'not_created')`,
-      [
-        result.CheckoutRequestID,
-        phone,
-        amount,
-        "Waiting for Telegram payment confirmation.",
-        String(telegramUserId),
-        String(service.service),
-        String(service.name),
-        target.href,
-        units,
-        rate
-      ]
-    );
+    await pool.query(
+  `UPDATE payments
+   SET checkout_id = $1,
+       result_description = $2
+   WHERE checkout_id = $3`,
+  [
+    result.CheckoutRequestID,
+    "Waiting for Telegram payment confirmation.",
+    pendingCheckoutId
+  ]
+);
+
+pendingCheckoutId = null;
 
     return res.json({
       success: true,
