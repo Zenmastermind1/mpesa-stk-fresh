@@ -6,6 +6,20 @@ const { Telegraf, Markup } = require("telegraf");
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
 const API_URL = "https://digitexsmartsolutions.com/api/v2";
+const USD_TO_KES = 132;
+const PROFIT_MARGIN = 1.30;
+
+function calculateSellingPrice(rate) {
+  const providerRate = Number(rate);
+
+  if (!Number.isFinite(providerRate) || providerRate < 0) {
+    throw new Error("Invalid Digitex service rate.");
+  }
+
+  return Math.ceil(
+    providerRate * USD_TO_KES * PROFIT_MARGIN
+  );
+}
 
 async function digitex(action, extra = {}) {
   const body = new URLSearchParams({
@@ -140,9 +154,9 @@ bot.action(/^svc:(\d+)$/, async (ctx) => {
     `📦 ${service.name}\n\n` +
     `🆔 Service ID: ${service.service}\n` +
     `📂 Category: ${service.category || "Other"}\n` +
-    `💵 Digitex rate: ${service.rate} USD\n` +
-    `🔢 Minimum: ${service.min}\n` +
-    `🔢 Maximum: ${service.max}\n` +
+    `💵 Digitex rate: $${service.rate} per 1,000\n` +
+`🛒 OG ZEN selling price: KES ${calculateSellingPrice(service.rate)} per 1,000\n` +
+`🔢 Minimum: ${service.min}\n` +
     `🔄 Refill: ${service.refill ? "Yes" : "No"}\n\n` +
     "This is the provider rate, not yet the final customer price.\n\n" +
     "Order placement will be enabled after customer payments and pricing are configured."
