@@ -198,7 +198,7 @@ bot.action("balance", async (ctx) => {
 
 bot.action("support", async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.reply("📞 Welcome to OG ZEN SMM support.\n\nPlease contact our administrator for assistance.");
+  await ctx.reply("📞 Welcome to OG ZEN SMM support.\n\nPlease contact our administrator @ogzenm7 for assistance.");
 });
 
 bot.on("text", async (ctx) => {
@@ -264,7 +264,6 @@ bot.on("text", async (ctx) => {
   }
 
   if (session.step === "waiting_phone") {
-  if (session.step === "waiting_phone") {
   const phone = ctx.message.text.trim();
 
   if (!/^254[17]\d{8}$/.test(phone)) {
@@ -309,7 +308,7 @@ bot.on("text", async (ctx) => {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      session.step = "ready_for_payment";
+      session.step = "waiting_phone";
 
       return ctx.reply(
         "Payment request failed: " +
@@ -328,7 +327,7 @@ bot.on("text", async (ctx) => {
 
   } catch (error) {
     console.error("Telegram payment request failed:", error.message);
-    session.step = "ready_for_payment";
+    session.step = "waiting_phone";
 
     return ctx.reply(
       "Unable to send the payment request. Please try again later."
