@@ -490,7 +490,7 @@ stkAccepted = true;
     
     await pool.query(
   `UPDATE payments
-   SET checkout_id = $1,
+   SET daraja_checkout_id = $1,
        result_description = $2
    WHERE checkout_id = $3`,
   [
@@ -550,12 +550,15 @@ app.post("/api/mpesa/callback", async (req, res) => {
 
     if (checkoutId) {
       await pool.query(
+  `UPDconst paymentUpdate = await pool.query(
   `UPDATE payments
    SET status = $1,
        amount = COALESCE($2, amount),
        receipt = $3,
        result_description = $4
-   WHERE checkout_id = $5`,
+   WHERE checkout_id = $5
+      OR daraja_checkout_id = $5
+   RETURNING checkout_id, telegram_user_id`,
   [
     resultCode === 0 ? "success" : "failed",
     amount ?? null,
@@ -564,7 +567,14 @@ app.post("/api/mpesa/callback", async (req, res) => {
     checkoutId
   ]
 );
-      if (resultCode === 0) {
+
+if (
+  resultCode === 0 &&
+  paymentUpdate.rows.length > 0 &&
+  paymentUpdate.rows[0].telegram_user_id !== null
+) {
+  await processTelegramOrder(paymentUpdate.rows[0].checkout_id);
+}      if (resultCode === 0) {
   await processTelegramOrder(checkoutId);
       }
     }
