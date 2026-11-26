@@ -735,8 +735,14 @@ async function initializeDatabase() {
       ADD COLUMN IF NOT EXISTS quantity INTEGER,
       ADD COLUMN IF NOT EXISTS digitex_rate NUMERIC,
       ADD COLUMN IF NOT EXISTS provider_order_id TEXT,
-      ADD COLUMN IF NOT EXISTS order_status TEXT DEFAULT 'not_created'
+      ADD COLUMN IF NOT EXISTS order_status TEXT DEFAULT 'not_created',
+      ADD COLUMN IF NOT EXISTS daraja_checkout_id TEXT
   `);
+  await pool.query(`
+  CREATE UNIQUE INDEX IF NOT EXISTS payments_daraja_checkout_id_unique
+  ON payments (daraja_checkout_id)
+  WHERE daraja_checkout_id IS NOT NULL
+`);
   console.log("Payments table is ready!");
 }
 
