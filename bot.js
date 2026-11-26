@@ -4,6 +4,7 @@ require("dotenv").config();
 const { Telegraf, Markup } = require("telegraf");
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+const orderSessions = new Map();
 
 const API_URL = "https://digitexsmartsolutions.com/api/v2";
 const USD_TO_KES = 132;
@@ -20,7 +21,24 @@ function calculateSellingPrice(rate) {
     providerRate * USD_TO_KES * PROFIT_MARGIN
   );
 }
+function calculateOrderTotal(rate, quantity) {
+  const providerRate = Number(rate);
+  const units = Number(quantity);
 
+  if (
+    !Number.isFinite(providerRate) ||
+    providerRate < 0 ||
+    !Number.isSafeInteger(units) ||
+    units < 1 ||
+    units > 100000
+  ) {
+    throw new Error("Invalid order price or quantity.");
+  }
+
+  return Math.ceil(
+    providerRate * USD_TO_KES * PROFIT_MARGIN * units / 1000
+  );
+}
 async function digitex(action, extra = {}) {
   const body = new URLSearchParams({
     key: process.env.DIGITEX_API_KEY,
@@ -149,7 +167,15 @@ bot.action(/^svc:(\d+)$/, async (ctx) => {
   if (!service) {
     return ctx.reply("Service not found. Please reload Services.");
   }
+  orderSessions.set(ctx.from.id, {
+    step: "waiting_link",
+    service: service
+  });
 
+  return ctx.reply(
+    "You selected: " + service.name +
+    "\n\nPlease send the link for your order."
+  );
   await ctx.reply(
     `📦 ${service.name}\n\n` +
     `🆔 Service ID: ${service.service}\n` +
@@ -183,6 +209,36 @@ bot.action("support", async (ctx) => {
   await ctx.reply("📞 Welcome to OG ZEN SMM support.\n\nPlease contact our administrator for assistance.");
 });
 
+bot.on("text", async (ctx) => {
+  const session = orderSessions.get(ctx.from.id);
+
+  if (!session) {
+    return;
+  }
+
+  if (session.step === "waiting_link") {
+    const link = ctx.message.text.trim();
+
+    let validUrl;
+
+    try {
+      validUrl = new URL(link);
+    } catch {
+      return ctx.reply("Invalid link. Please send a valid URL starting with https:// or http://");
+    }
+
+    if (!["http:", "https:"].includes(validUrl.protocol)) {
+      return ctx.reply("Please send a valid HTTP or HTTPS link.");
+    }
+
+    session.link = link;
+    session.step = "waiting_quantity";
+
+    return ctx.reply(
+      "Link received!\n\nNow enter the quantity you want to order."
+    );
+  }
+});
 bot.catch((error) => {
   console.error("Telegram bot error:", error.message);
 });
