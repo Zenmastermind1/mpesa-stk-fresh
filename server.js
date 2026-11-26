@@ -474,8 +474,8 @@ await pool.query(
         error: result.errorMessage || "STK Push was rejected."
       });
     }
-
-    await pool.query(
+stkAccepted = true;
+    
     await pool.query(
   `UPDATE payments
    SET checkout_id = $1,
@@ -498,6 +498,20 @@ pendingCheckoutId = null;
     });
 
   } catch (error) {
+    if (pendingCheckoutId && !stkAccepted) {
+  await pool.query(
+    `UPDATE payments
+     SET status = 'failed',
+         result_description = $1
+     WHERE checkout_id = $2`,
+    [
+      "Could not initiate M-Pesa payment.",
+      pendingCheckoutId
+    ]
+  ).catch(dbError => {
+    console.error("Payment record update failed:", dbError.message);
+  });
+    }
     console.error("Telegram payment error:", error.message);
 
     return res.status(500).json({
