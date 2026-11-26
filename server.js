@@ -3,6 +3,7 @@ const express = require("express");
 const helmet = require("helmet");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+const bot = require("./bot");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,20 @@ const transactions = new Map();
 
 app.use(helmet());
 app.use(express.json());
+
+const webhookPath = "/telegram/webhook";
+const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+
+if (!webhookSecret) {
+  throw new Error("Telegram webhook secret is missing.");
+}
+
+app.use(
+  bot.webhookCallback(webhookPath, {
+    secretToken: webhookSecret
+  })
+);
+
 app.use(express.static("public"));
 
 app.get("/api/status", (req, res) => {
@@ -356,13 +371,30 @@ async function initializeDatabase() {
 
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log("Server running on port " + PORT);
+
+      try {
+        const baseUrl = process.env.RENDER_EXTERNAL_URL;
+
+        if (!baseUrl) {
+          throw new Error("RENDER_EXTERNAL_URL is missing.");
+        }
+
+        const webhookUrl =
+          baseUrl.replace(/\/$/, "") + webhookPath;
+
+        await bot.telegram.setWebhook(webhookUrl, {
+          secret_token: webhookSecret
+        });
+
+        console.log("OG ZEN SMM Telegram webhook connected!");
+      } catch (error) {
+        console.error("Telegram webhook setup failed:", error.message);
+      }
     });
   })
   .catch(error => {
     console.error("Database setup failed:", error);
     process.exit(1);
   });
-
-
