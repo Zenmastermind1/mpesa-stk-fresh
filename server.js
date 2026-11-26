@@ -262,7 +262,230 @@ async function processTelegramOrder(checkoutId) {
     });
   }
 }
+app.post("/api/telegram/payment", async (req, res) => {
+  try {
+    const suppliedSecret =
+      req.headers["x-telegram-payment-secret"] || "";
 
+    const expectedSecret =
+      process.env.TELEGRAM_PAYMENT_SECRET || "";
+
+    if (
+      !expectedSecret ||
+      typeof suppliedSecret !== "string" ||
+      suppliedSecret.length !== expectedSecret.length ||
+      !crypto.timingSafeEqual(
+        Buffer.from(suppliedSecret),
+        Buffer.from(expectedSecret)
+      )
+    ) {
+      return res.status(401).json({
+        error: "Unauthorized payment request."
+      });
+    }
+
+    const {
+      telegramUserId,
+      serviceId,
+      link,
+      quantity,
+      phone
+    } = req.body;
+
+    if (
+      !Number.isSafeInteger(Number(telegramUserId)) ||
+      Number(telegramUserId) <= 0
+    ) {
+      return res.status(400).json({
+        error: "Invalid Telegram user."
+      });
+    }
+
+    if (!/^254[17]\d{8}$/.test(String(phone || ""))) {
+      return res.status(400).json({
+        error: "Invalid M-Pesa phone number."
+      });
+    }
+
+    const units = Number(quantity);
+
+    if (
+      !Number.isSafeInteger(units) ||
+      units < 1 ||
+      units > 100000
+    ) {
+      return res.status(400).json({
+        error: "Invalid quantity."
+      });
+    }
+
+    let target;
+
+    try {
+      target = new URL(String(link));
+    } catch {
+      return res.status(400).json({
+        error: "Invalid target link."
+      });
+    }
+
+    if (!["http:", "https:"].includes(target.protocol)) {
+      return res.status(400).json({
+        error: "Only HTTP and HTTPS links are allowed."
+      });
+    }
+
+    if (typeof bot.digitex !== "function") {
+      throw new Error("Digitex connection unavailable.");
+    }
+
+    const services = await bot.digitex("services");
+
+    const service = services.find(
+      item => String(item.service) === String(serviceId)
+    );
+
+    if (!service) {
+      return res.status(400).json({
+        error: "Selected service is unavailable."
+      });
+    }
+
+    const minimum = Number(service.min);
+    const rate = Number(service.rate);
+
+    if (
+      !Number.isSafeInteger(minimum) ||
+      units < minimum ||
+      !Number.isFinite(rate) ||
+      rate <= 0
+    ) {
+      return res.status(400).json({
+        error: "Invalid service quantity or price."
+      });
+    }
+
+    const amount = Math.ceil(
+      rate * 132 * 1.30 * units / 1000
+    );
+
+    const {
+      MPESA_CONSUMER_KEY,
+      MPESA_CONSUMER_SECRET,
+      MPESA_SHORTCODE,
+      MPESA_PASSKEY,
+      MPESA_CALLBACK_URL
+    } = process.env;
+
+    if (
+      !MPESA_CONSUMER_KEY ||
+      !MPESA_CONSUMER_SECRET ||
+      !MPESA_SHORTCODE ||
+      !MPESA_PASSKEY ||
+      !MPESA_CALLBACK_URL
+    ) {
+      throw new Error("M-Pesa settings are incomplete.");
+    }
+
+    const auth = Buffer.from(
+      MPESA_CONSUMER_KEY + ":" + MPESA_CONSUMER_SECRET
+    ).toString("base64");
+
+    const tokenResponse = await fetch(
+      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: "Basic " + auth
+        }
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      throw new Error("Daraja authentication failed.");
+    }
+
+    const timestamp = getTimestamp();
+
+    const password = Buffer.from(
+      MPESA_SHORTCODE + MPESA_PASSKEY + timestamp
+    ).toString("base64");
+
+    const stkResponse = await fetch(
+      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + tokenData.access_token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          BusinessShortCode: MPESA_SHORTCODE,
+          Password: password,
+          Timestamp: timestamp,
+          TransactionType: "CustomerPayBillOnline",
+          Amount: amount,
+          PartyA: phone,
+          PartyB: MPESA_SHORTCODE,
+          PhoneNumber: phone,
+          CallBackURL: MPESA_CALLBACK_URL,
+          AccountReference: "OGZENBOT",
+          TransactionDesc: "SMM Order"
+        })
+      }
+    );
+
+    const result = await stkResponse.json();
+
+    if (
+      !stkResponse.ok ||
+      result.ResponseCode !== "0" ||
+      !result.CheckoutRequestID
+    ) {
+      console.error("Telegram STK error:", result);
+
+      return res.status(502).json({
+        error: result.errorMessage || "STK Push was rejected."
+      });
+    }
+
+    await pool.query(
+      `INSERT INTO payments
+       (checkout_id, phone, amount, status,
+        result_description, telegram_user_id,
+        service_id, service_name, target_link,
+        quantity, digitex_rate, order_status)
+       VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,'not_created')`,
+      [
+        result.CheckoutRequestID,
+        phone,
+        amount,
+        "Waiting for Telegram payment confirmation.",
+        String(telegramUserId),
+        String(service.service),
+        String(service.name),
+        target.href,
+        units,
+        rate
+      ]
+    );
+
+    return res.json({
+      success: true,
+      amount,
+      checkoutRequestID: result.CheckoutRequestID,
+      message: "STK Push sent."
+    });
+
+  } catch (error) {
+    console.error("Telegram payment error:", error.message);
+
+    return res.status(500).json({
+      error: "Could not initiate Telegram payment."
+    });
+  }
+});
 // Safaricom sends the final transaction result here.
 app.post("/api/mpesa/callback", async (req, res) => {
   const callback = req.body?.Body?.stkCallback;
