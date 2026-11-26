@@ -167,28 +167,20 @@ bot.action(/^svc:(\d+)$/, async (ctx) => {
   if (!service) {
     return ctx.reply("Service not found. Please reload Services.");
   }
+
   orderSessions.set(ctx.from.id, {
     step: "waiting_link",
     service: service
   });
 
   return ctx.reply(
-    "You selected: " + service.name +
-    "\n\nPlease send the link for your order."
-  );
-  await ctx.reply(
     `📦 ${service.name}\n\n` +
     `🆔 Service ID: ${service.service}\n` +
-    `📂 Category: ${service.category || "Other"}\n` +
-    `💵 Digitex rate: $${service.rate} per 1,000\n` +
-`🛒 OG ZEN selling price: KES ${calculateSellingPrice(service.rate)} per 1,000\n` +
-`🔢 Minimum: ${service.min}\n` +
-    `🔄 Refill: ${service.refill ? "Yes" : "No"}\n\n` +
-    "This is the provider rate, not yet the final customer price.\n\n" +
-    "Order placement will be enabled after customer payments and pricing are configured."
+    `💵 Price: KES ${calculateSellingPrice(service.rate)} per 1,000\n` +
+    `🔢 Minimum: ${service.min}\n\n` +
+    "Please send the link for your order."
   );
 });
-
 bot.action("balance", async (ctx) => {
   await ctx.answerCbQuery();
 
@@ -212,9 +204,7 @@ bot.action("support", async (ctx) => {
 bot.on("text", async (ctx) => {
   const session = orderSessions.get(ctx.from.id);
 
-  if (!session) {
-    return;
-  }
+  if (!session) return;
 
   if (session.step === "waiting_link") {
     const link = ctx.message.text.trim();
@@ -224,7 +214,7 @@ bot.on("text", async (ctx) => {
     try {
       validUrl = new URL(link);
     } catch {
-      return ctx.reply("Invalid link. Please send a valid URL starting with https:// or http://");
+      return ctx.reply("Invalid link. Please send a valid URL.");
     }
 
     if (!["http:", "https:"].includes(validUrl.protocol)) {
@@ -235,7 +225,63 @@ bot.on("text", async (ctx) => {
     session.step = "waiting_quantity";
 
     return ctx.reply(
-      "Link received!\n\nNow enter the quantity you want to order."
+      "Link received!\n\nPlease enter your order quantity."
+    );
+  }
+
+  if (session.step === "waiting_quantity") {
+    const quantity = Number(ctx.message.text.trim());
+    const minimum = Number(session.service.min);
+
+    if (
+      !Number.isSafeInteger(quantity) ||
+      quantity < minimum ||
+      quantity > 100000
+    ) {
+      return ctx.reply(
+        `Please enter a whole number between ${minimum} and 100000.`
+      );
+    }
+
+    session.quantity = quantity;
+
+    try {
+      session.total = calculateOrderTotal(
+        session.service.rate,
+        quantity
+      );
+    } catch (error) {
+      return ctx.reply("Unable to calculate the price. Please try again.");
+    }
+
+    session.step = "waiting_phone";
+
+    return ctx.reply(
+      `Quantity: ${quantity}\n` +
+      `Total price: KES ${session.total}\n\n` +
+      "Enter your M-Pesa phone number in this format:\n2547XXXXXXXX"
+    );
+  }
+
+  if (session.step === "waiting_phone") {
+    const phone = ctx.message.text.trim();
+
+    if (!/^254[17]\d{8}$/.test(phone)) {
+      return ctx.reply(
+        "Invalid phone number. Use format 2547XXXXXXXX or 2541XXXXXXXX."
+      );
+    }
+
+    session.phone = phone;
+    session.step = "ready_for_payment";
+
+    return ctx.reply(
+      "Your order details have been collected!\n\n" +
+      `Service: ${session.service.name}\n` +
+      `Quantity: ${session.quantity}\n` +
+      `Total: KES ${session.total}\n` +
+      `Phone: ${session.phone}\n\n` +
+      "Payment setup is the next step. No payment has been requested yet."
     );
   }
 });
