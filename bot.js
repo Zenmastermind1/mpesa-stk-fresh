@@ -167,12 +167,4 @@ bot.catch((error) => {
   console.error("Telegram bot error:", error.message);
 });
 
-bot.launch()
-  .then(() => console.log("OG ZEN SMM Telegram bot is running."))
-  .catch(error => {
-    console.error("Bot startup failed:", error.message);
-    process.exit(1);
-  });
-
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+module.exports = bot;
