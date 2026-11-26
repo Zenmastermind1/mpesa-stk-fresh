@@ -366,6 +366,17 @@ async function initializeDatabase() {
     )
   `);
 
+    await pool.query(`
+    ALTER TABLE payments
+      ADD COLUMN IF NOT EXISTS telegram_user_id BIGINT,
+      ADD COLUMN IF NOT EXISTS service_id TEXT,
+      ADD COLUMN IF NOT EXISTS service_name TEXT,
+      ADD COLUMN IF NOT EXISTS target_link TEXT,
+      ADD COLUMN IF NOT EXISTS quantity INTEGER,
+      ADD COLUMN IF NOT EXISTS digitex_rate NUMERIC,
+      ADD COLUMN IF NOT EXISTS provider_order_id TEXT,
+      ADD COLUMN IF NOT EXISTS order_status TEXT DEFAULT 'not_created'
+  `);
   console.log("Payments table is ready!");
 }
 
