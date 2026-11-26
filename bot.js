@@ -64,13 +64,19 @@ bot.action("services", async (ctx) => {
       )
     ].sort();
 
-    const keyboard = categories.map(category => [
-      Markup.button.callback(
-        category.slice(0, 50),
-        "cat:" + categories.indexOf(category)
-      )
-    ]);
+    const keyboard = categories.map((category, index) => {
+  const safeCategory = String(category)
+    .replace(/[^\x20-\x7E]/g, "")
+    .trim()
+    .slice(0, 50) || "Other";
 
+  return [
+    Markup.button.callback(
+      safeCategory,
+      "cat:" + index
+    )
+  ];
+});
     await ctx.reply(
       "📂 Choose a service category:",
       Markup.inlineKeyboard(keyboard)
