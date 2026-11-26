@@ -24,6 +24,10 @@ app.use(express.json());
 
 const webhookPath = "/telegram/webhook";
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+const telegramPaymentSecret = process.env.TELEGRAM_PAYMENT_SECRET;
+if (!telegramPaymentSecret) {
+  throw new Error("Telegram payment secret is missing.");
+}
 
 if (!webhookSecret) {
   throw new Error("Telegram webhook secret is missing.");
@@ -174,11 +178,91 @@ app.post("/api/mpesa/stkpush", async (req, res) => {
   }
 });
 
-async function processTelegramOrder(checkoutId) {
-  console.log("Checking Telegram order for:", checkoutId);
 
-  // We will add the secure Digitex order processing here next.
+async function processTelegramOrder(checkoutId) {
+  let order;
+
+  try {
+    // Claim the paid Telegram order only once.
+    const claim = await pool.query(
+      `UPDATE payments
+       SET order_status = 'processing'
+       WHERE checkout_id = $1
+         AND status = 'success'
+         AND order_status = 'not_created'
+         AND telegram_user_id IS NOT NULL
+         AND service_id IS NOT NULL
+         AND target_link IS NOT NULL
+         AND quantity IS NOT NULL
+       RETURNING service_id, target_link, quantity`,
+      [checkoutId]
+    );
+
+    if (claim.rows.length === 0) {
+      console.log("No eligible new Telegram order:", checkoutId);
+      return;
+    }
+
+    order = claim.rows[0];
+
+    const quantity = Number(order.quantity);
+
+    if (
+      !Number.isSafeInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 100000 ||
+      !String(order.target_link).startsWith("https://") &&
+      !String(order.target_link).startsWith("http://")
+    ) {
+      throw new Error("Invalid Telegram order details.");
+    }
+
+    if (typeof bot.digitex !== "function") {
+      throw new Error("Digitex connection is unavailable.");
+    }
+
+    // Submit the order to Digitex after confirmed payment.
+    const result = await bot.digitex("add", {
+      service: String(order.service_id),
+      link: String(order.target_link),
+      quantity: String(quantity)
+    });
+
+    if (!result.order) {
+      throw new Error("Digitex did not return an order ID.");
+    }
+
+    await pool.query(
+      `UPDATE payments
+       SET provider_order_id = $1,
+           order_status = 'submitted'
+       WHERE checkout_id = $2`,
+      [String(result.order), checkoutId]
+    );
+
+    console.log("Digitex order submitted:", result.order);
+
+  } catch (error) {
+    console.error(
+      "Telegram order processing needs review:",
+      checkoutId,
+      error.message
+    );
+
+    // Do not automatically retry: the provider may have
+    // accepted the order even if the response was interrupted.
+    await pool.query(
+      `UPDATE payments
+       SET order_status = 'needs_review'
+       WHERE checkout_id = $1
+         AND order_status = 'processing'`,
+      [checkoutId]
+    ).catch(dbError => {
+      console.error("Could not update order status:", dbError.message);
+    });
+  }
 }
+
 // Safaricom sends the final transaction result here.
 app.post("/api/mpesa/callback", async (req, res) => {
   const callback = req.body?.Body?.stkCallback;
